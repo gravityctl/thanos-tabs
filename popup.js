@@ -4,9 +4,10 @@ const ALARM_NAME = 'thanos-snap';
 const DEFAULT_INTERVAL = 5;
 
 async function loadSettings() {
-  const result = await chrome.storage.local.get(['intervalMinutes', 'minTabsKept']);
+  const result = await chrome.storage.local.get(['intervalMinutes', 'minTabsKept', 'enabled']);
   document.getElementById('interval').value = result.intervalMinutes ?? DEFAULT_INTERVAL;
   document.getElementById('minKept').value = result.minTabsKept ?? 0;
+  document.getElementById('enabled').checked = result.enabled ?? true;
   updateStatus();
 }
 
@@ -14,11 +15,16 @@ async function updateStatus() {
   const tabs = await chrome.tabs.query({});
   const closeable = tabs.filter(t => !t.pinned);
   const statusEl = document.getElementById('status');
+  const { enabled } = await chrome.storage.local.get('enabled');
+
+  if (enabled === false) {
+    statusEl.textContent = `${closeable.length} closeable tabs · disabled`;
+    return;
+  }
 
   const alarm = await chrome.alarms.get(ALARM_NAME);
   if (alarm) {
-    const next = new Date(alarm.scheduledTime);
-    const mins = Math.ceil((next - Date.now()) / 60000);
+    const mins = Math.ceil((alarm.scheduledTime - Date.now()) / 60000);
     statusEl.textContent = `${closeable.length} closeable tabs · next snap in ${mins}m`;
   } else {
     statusEl.textContent = `${closeable.length} closeable tabs`;
@@ -38,6 +44,11 @@ document.getElementById('interval').addEventListener('change', async (e) => {
     });
   });
 
+  updateStatus();
+});
+
+document.getElementById('enabled').addEventListener('change', async (e) => {
+  await chrome.storage.local.set({ enabled: e.target.checked });
   updateStatus();
 });
 

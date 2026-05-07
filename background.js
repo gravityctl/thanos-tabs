@@ -25,6 +25,8 @@ let isSnapping = false;
 
 // Close half of the non-pinned tabs, never dropping below minTabsKept
 async function snapTabs() {
+  const { enabled } = await chrome.storage.local.get('enabled');
+  if (enabled === false) return;
   if (isSnapping) return;
   isSnapping = true;
 
