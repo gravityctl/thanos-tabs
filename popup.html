@@ -72,6 +72,14 @@
   <h1>Thanos Tabs</h1>
 
   <div class="setting-row">
+    <label for="minKept">Always keep at least</label>
+    <div style="display: flex; align-items: center; gap: 4px;">
+      <input type="number" id="minKept" min="0" max="1000" value="0">
+      <span style="font-size: 13px; color: #a6adc8;">tabs</span>
+    </div>
+  </div>
+
+  <div class="setting-row">
     <label for="interval">Snap every</label>
     <div style="display: flex; align-items: center; gap: 4px;">
       <input type="number" id="interval" min="1" max="1440" value="5">

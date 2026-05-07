@@ -18,20 +18,21 @@ async function updateBadge() {
   chrome.action.setBadgeBackgroundColor({ color: '#7c3aed' });
 }
 
-// Close half of the non-pinned tabs
+// Close half of the non-pinned tabs, never dropping below minTabsKept
 async function snapTabs() {
-  const allTabs = await chrome.tabs.query({});
+  const result = await chrome.storage.local.get(['minTabsKept', 'intervalMinutes']);
+  const minKept = result.minTabsKept ?? 0;
 
+  const allTabs = await chrome.tabs.query({});
   const closeableTabs = allTabs.filter(tab => !tab.pinned);
 
-  if (closeableTabs.length === 0) {
+  if (closeableTabs.length <= minKept) {
     return;
   }
 
-  // Shuffle and take half
-  const toClose = shuffleArray([...closeableTabs]).slice(0, Math.ceil(closeableTabs.length / 2));
+  const maxToClose = closeableTabs.length - minKept;
+  const toClose = shuffleArray([...closeableTabs]).slice(0, Math.max(1, Math.floor(maxToClose / 2)));
 
-  // Give a short delay so user sees what's happening
   await new Promise(resolve => setTimeout(resolve, 200));
 
   for (const tab of toClose) {
