@@ -5,10 +5,10 @@ A Chrome extension that snaps half of your tabs away at a configurable interval.
 ## Features
 
 - Automatically closes half of your open tabs at a set interval (default: 5 minutes)
-- Ignores pinned tabs
-- Configurable interval via popup UI
-- Badge indicator shows when next snap is scheduled
-- Works in the background via Chrome's alarm API
+- Respects pinned tabs (they are never closed)
+- **Min tabs kept** — ensures at least N tabs remain after each snap (default: 0, meaning no floor)
+- Configurable interval and min tabs via popup UI
+- Badge indicator shows minutes until next snap
 
 ## Setup
 
