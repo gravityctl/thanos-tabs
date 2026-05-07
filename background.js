@@ -2,18 +2,21 @@
 
 const DEFAULT_INTERVAL_MINUTES = 5;
 const ALARM_NAME = 'thanos-snap';
+const BADGE_TICK_NAME = 'badge-tick';
 
-// Load saved interval or default
 async function getIntervalMinutes() {
   const result = await chrome.storage.local.get('intervalMinutes');
   return result.intervalMinutes ?? DEFAULT_INTERVAL_MINUTES;
 }
 
-// Update badge with next snap time
+// Update badge with minutes remaining until next alarm fire
 async function updateBadge() {
-  const intervalMinutes = await getIntervalMinutes();
-  const nextSnap = new Date(Date.now() + intervalMinutes * 60 * 1000);
-  const minutesLeft = Math.ceil((nextSnap - Date.now()) / 60000);
+  const alarm = await chrome.alarms.get(ALARM_NAME);
+  if (!alarm) {
+    chrome.action.setBadgeText({ text: '' });
+    return;
+  }
+  const minutesLeft = Math.max(1, Math.ceil((alarm.scheduledTime - Date.now()) / 60000));
   chrome.action.setBadgeText({ text: minutesLeft.toString() });
   chrome.action.setBadgeBackgroundColor({ color: '#7c3aed' });
 }
@@ -56,59 +59,38 @@ function shuffleArray(array) {
   return array;
 }
 
-// Set up the alarm to run periodically
 async function setupAlarm() {
   const intervalMinutes = await getIntervalMinutes();
-  const periodMinutes = intervalMinutes;
-
   chrome.alarms.create(ALARM_NAME, {
-    periodInMinutes: periodMinutes,
-    delayInMinutes: periodMinutes,
+    periodInMinutes: intervalMinutes,
+    delayInMinutes: intervalMinutes,
   });
+  chrome.alarms.create(BADGE_TICK_NAME, { periodInMinutes: 1 });
 }
 
-// Alarm listener
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === ALARM_NAME) {
-    snapTabs();
+    snapTabs().then(updateBadge);
+  } else if (alarm.name === BADGE_TICK_NAME) {
     updateBadge();
   }
 });
 
-// When extension is installed or updated
 chrome.runtime.onInstalled.addListener(() => {
   setupAlarm();
   updateBadge();
 });
 
-// When browser starts
 chrome.runtime.onStartup.addListener(() => {
   setupAlarm();
   updateBadge();
 });
 
-// Listen for storage changes (interval updated via popup)
 chrome.storage.onChanged.addListener((changes) => {
   if (changes.intervalMinutes) {
     chrome.alarms.clear(ALARM_NAME, () => {
       setupAlarm();
     });
-    updateBadge();
-  }
-});
-
-// Update badge every minute
-chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === ALARM_NAME) {
-    snapTabs();
-    updateBadge();
-  }
-});
-
-// Also update badge on a regular interval for countdown accuracy
-chrome.alarms.create('badge-tick', { periodInMinutes: 1 });
-chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === 'badge-tick') {
     updateBadge();
   }
 });
