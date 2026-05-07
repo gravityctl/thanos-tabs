@@ -57,8 +57,9 @@ document.getElementById('snap-now').addEventListener('click', async () => {
 
   if (closeableTabs.length <= minKept) return;
 
-  const maxToClose = closeableTabs.length - minKept;
-  const toClose = shuffle([...closeableTabs]).slice(0, Math.max(1, Math.floor(maxToClose / 2)));
+  // keepCount = max(minKept, ceil(total/2)), closeCount = total - keepCount
+  const keepCount = Math.max(minKept, Math.ceil(closeableTabs.length / 2));
+  const toClose = shuffle([...closeableTabs]).slice(keepCount);
 
   for (const tab of toClose) {
     chrome.tabs.remove(tab.id).catch(() => {});

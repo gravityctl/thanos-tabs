@@ -30,8 +30,10 @@ async function snapTabs() {
     return;
   }
 
-  const maxToClose = closeableTabs.length - minKept;
-  const toClose = shuffleArray([...closeableTabs]).slice(0, Math.max(1, Math.floor(maxToClose / 2)));
+  // Close half of closeable tabs, but never go below minKept kept after snap.
+  // keepCount = max(minKept, ceil(total/2)), closeCount = total - keepCount
+  const keepCount = Math.max(minKept, Math.ceil(closeableTabs.length / 2));
+  const toClose = shuffleArray([...closeableTabs]).slice(keepCount);
 
   await new Promise(resolve => setTimeout(resolve, 200));
 
