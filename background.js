@@ -18,27 +18,33 @@ async function updateBadge() {
   chrome.action.setBadgeBackgroundColor({ color: '#7c3aed' });
 }
 
+let isSnapping = false;
+
 // Close half of the non-pinned tabs, never dropping below minTabsKept
 async function snapTabs() {
-  const result = await chrome.storage.local.get(['minTabsKept', 'intervalMinutes']);
-  const minKept = result.minTabsKept ?? 0;
+  if (isSnapping) return;
+  isSnapping = true;
 
-  const allTabs = await chrome.tabs.query({});
-  const closeableTabs = allTabs.filter(tab => !tab.pinned);
+  try {
+    const result = await chrome.storage.local.get(['minTabsKept', 'intervalMinutes']);
+    const minKept = result.minTabsKept ?? 0;
 
-  if (closeableTabs.length <= minKept) {
-    return;
-  }
+    const allTabs = await chrome.tabs.query({});
+    const closeableTabs = allTabs.filter(tab => !tab.pinned);
 
-  // Close half of closeable tabs, but never go below minKept kept after snap.
-  // keepCount = max(minKept, ceil(total/2)), closeCount = total - keepCount
-  const keepCount = Math.max(minKept, Math.ceil(closeableTabs.length / 2));
-  const toClose = shuffleArray([...closeableTabs]).slice(keepCount);
+    if (closeableTabs.length <= minKept) {
+      return;
+    }
 
-  await new Promise(resolve => setTimeout(resolve, 200));
+    // keepCount = max(minKept, ceil(total/2)), closeCount = total - keepCount
+    const keepCount = Math.max(minKept, Math.ceil(closeableTabs.length / 2));
+    const toClose = shuffleArray([...closeableTabs]).slice(keepCount);
 
-  for (const tab of toClose) {
-    chrome.tabs.remove(tab.id).catch(() => {});
+    for (const tab of toClose) {
+      await chrome.tabs.remove(tab.id);
+    }
+  } finally {
+    isSnapping = false;
   }
 }
 
