@@ -14,7 +14,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Get current version tag
+      - name: Get latest release version
         id: current_version
         run: |
           # Use GitHub API to find the latest release tag (works even with shallow clone)
@@ -29,71 +29,47 @@ jobs:
             echo "tag_name=$TAG" >> $GITHUB_OUTPUT
           fi
 
-      - name: Bump version
-        id: bump_version
-        run: |
-          CURRENT=${{ steps.current_version.outputs.version }}
-          MAJOR=$(echo $CURRENT | cut -d. -f1)
-          MINOR=$(echo $CURRENT | cut -d. -f2)
-          PATCH=$(echo $CURRENT | cut -d. -f3)
-
-          # Check for version bump type in commit message or use patch bump
-          COMMIT_MSG=$(git log -1 --format=%s)
-          if echo "$COMMIT_MSG" | grep -qi "bump:patch"; then
-            NEW_PATCH=$((PATCH + 1))
-            echo "new_version=${MAJOR}.${MINOR}.${NEW_PATCH}" >> $GITHUB_OUTPUT
-            echo "bump_type=patch" >> $GITHUB_OUTPUT
-          elif echo "$COMMIT_MSG" | grep -qi "bump:minor"; then
-            NEW_MINOR=$((MINOR + 1))
-            echo "new_version=${MAJOR}.${NEW_MINOR}.0" >> $GITHUB_OUTPUT
-            echo "bump_type=minor" >> $GITHUB_OUTPUT
-          elif echo "$COMMIT_MSG" | grep -qi "bump:major"; then
-            NEW_MAJOR=$((MAJOR + 1))
-            echo "new_version=${NEW_MAJOR}.0.0" >> $GITHUB_OUTPUT
-            echo "bump_type=major" >> $GITHUB_OUTPUT
-          else
-            # Default: patch bump
-            NEW_PATCH=$((PATCH + 1))
-            echo "new_version=${MAJOR}.${MINOR}.${NEW_PATCH}" >> $GITHUB_OUTPUT
-            echo "bump_type=patch" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Read current manifest version
+      - name: Read manifest version
+        id: manifest
         run: |
           MANIFEST_VER=$(grep '"version"' manifest.json | sed 's/.*"version": "\([^"]*\)".*/\1/')
-          echo "manifest_version=$MANIFEST_VER" >> $GITHUB_ENV
-          echo "new_version=${{ steps.bump_version.outputs.new_version }}" >> $GITHUB_ENV
+          echo "version=$MANIFEST_VER" >> $GITHUB_OUTPUT
 
-      - name: Update manifest.json
-        if: steps.bump_version.outputs.bump_type != 'none'
+      - name: Check if release needed
+        id: needs_release
         run: |
-          sed -i 's/"version": "[^"]*"/"version": "${{ env.new_version }}"/' manifest.json
-          cat manifest.json | grep version
+          CURRENT="${{ steps.current_version.outputs.version }}"
+          MANIFEST="${{ steps.manifest.outputs.version }}"
+          echo "current=$CURRENT manifest=$MANIFEST"
+          # Compare versions: if manifest > current, release is needed
+          if printf '%s\n%s\n' "$CURRENT" "$MANIFEST" | sort -V -r | head -1 | grep -q "^$MANIFEST$"; then
+            echo "needed=true" >> $GITHUB_OUTPUT
+          else
+            echo "needed=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Build extension zip
         run: |
           zip -r thanos-tabs.zip manifest.json background.js popup.html popup.js icons/
 
       - name: Create GitHub Release
-        if: steps.bump_version.outputs.bump_type != 'none'
+        if: steps.needs_release.outputs.needed == 'true'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ env.new_version }}
-          name: Thanos Tabs v${{ env.new_version }}
+          tag_name: v${{ steps.manifest.outputs.version }}
+          name: Thanos Tabs v${{ steps.manifest.outputs.version }}
           body: |
             ## What's New
 
-            Version bump: ${{ steps.current_version.outputs.version }} → ${{ env.new_version }}
+            Version ${{ steps.manifest.outputs.version }}
           files: thanos-tabs.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload version bump commit
-        if: steps.bump_version.outputs.bump_type != 'none'
+      - name: Create version tag
+        if: steps.needs_release.outputs.needed == 'true'
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add manifest.json
-          git commit -m "release: v${{ env.new_version }}"
-          git tag -a v${{ env.new_version }} -m "Thanos Tabs v${{ env.new_version }}"
-          git push origin main --tags
+          git tag -a v${{ steps.manifest.outputs.version }} -m "Thanos Tabs v${{ steps.manifest.outputs.version }}"
+          git push origin v${{ steps.manifest.outputs.version }}
