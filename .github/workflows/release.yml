@@ -22,8 +22,8 @@ jobs:
             "https://api.github.com/repos/${{ github.repository }}/releases/latest" \
             | python3 -c "import sys,json; r=json.load(sys.stdin); print(r.get('tag_name',''))" 2>/dev/null)
           if [ -z "$TAG" ]; then
-            echo "version=0.0.0" >> $GITHUB_OUTPUT
-            echo "tag_name=v0.0.0" >> $GITHUB_OUTPUT
+            echo "version=0.1.0" >> $GITHUB_OUTPUT
+            echo "tag_name=v0.1.0" >> $GITHUB_OUTPUT
           else
             echo "version=${TAG#v}" >> $GITHUB_OUTPUT
             echo "tag_name=$TAG" >> $GITHUB_OUTPUT
