@@ -66,10 +66,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Create version tag
-        if: steps.needs_release.outputs.needed == 'true'
-        run: |
-          git config user.name "github-actions"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a v${{ steps.manifest.outputs.version }} -m "Thanos Tabs v${{ steps.manifest.outputs.version }}"
-          git push origin v${{ steps.manifest.outputs.version }}
+      # Note: softprops/action-gh-release automatically creates the tag from tag_name
